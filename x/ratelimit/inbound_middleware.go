@@ -30,32 +30,43 @@ import (
 
 var errRateLimitExceeded = yarpcerrors.Newf(yarpcerrors.CodeResourceExhausted, "rate limit exceeded")
 
-// NewUnaryInboundMiddleware creates a unary inbound middleware that
-// introduces a throttle, shedding inbound requests if they arrive more often
-// than the configured rate limit.
-func NewUnaryInboundMiddleware(rps int, opts ...Option) (*UnaryInboundMiddleware, error) {
-	throttle, err := NewThrottle(rps, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &UnaryInboundMiddleware{
-		throttle: throttle,
-	}, nil
-}
-
-// UnaryInboundMiddleware is a unary inbound middleware that sheds inbound
-// requests above a rate limit, with some slack for bursts.
-type UnaryInboundMiddleware struct {
-	throttle *Throttle
-}
-
 var _ middleware.UnaryInbound = (*UnaryInboundMiddleware)(nil)
+
+type UnaryInboundMiddleware struct {
+	throttles       []*Throttle
+	defaultThrottle *Throttle
+	globalThrottle  *Throttle
+}
 
 // Handle drops inbound requests with a ResourceExhaustedError if the arrive
 // more frequently than the configured rate limit.
 func (m *UnaryInboundMiddleware) Handle(ctx context.Context, req *transport.Request, resw transport.ResponseWriter, next transport.UnaryHandler) error {
-	if m.throttle.Throttle() {
+	t := m.applicableThrottler(req)
+
+	if t.Throttle() {
+		_ = m.globalThrottle.Throttle()
+		return errRateLimitExceeded
+
+	} else if m.globalThrottle.Throttle() {
 		return errRateLimitExceeded
 	}
+
 	return next.Handle(ctx, req, resw)
+}
+
+func (m *UnaryInboundMiddleware) applicableThrottler(req *transport.Request) *Throttle {
+	// walk until we find an applicable throttle for this specific request
+	for _, t := range m.throttles {
+		if couldHandleRequest(t, req) {
+			return t
+		}
+	}
+	// return default if none apply
+	return m.defaultThrottle
+}
+
+func couldHandleRequest(t *Throttle, req *transport.Request) bool {
+	// TODO(apeatsbond): choose based on service name, caller, procedure whatever
+	// TODO(apeatsbond): this should likely be part of a wrapper around throttle
+	return true
 }

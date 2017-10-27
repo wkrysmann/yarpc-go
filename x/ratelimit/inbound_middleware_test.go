@@ -20,60 +20,45 @@
 
 package ratelimit_test
 
-import (
-	"context"
-	"fmt"
-	"testing"
+// func TestRateLimiterMiddleware(t *testing.T) {
+// 	middleware, err := ratelimit.NewUnaryInboundMiddleware(1, ratelimit.WithoutSlack)
+// 	require.NoError(t, err)
+// 	serverTransport := http.NewTransport()
+// 	serverInbound := serverTransport.NewInbound("127.0.0.1:0")
+// 	serverDispatcher := yarpc.NewDispatcher(yarpc.Config{
+// 		Name:     "service",
+// 		Inbounds: yarpc.Inbounds{serverInbound},
+// 		InboundMiddleware: yarpc.InboundMiddleware{
+// 			Unary: middleware,
+// 		},
+// 	})
+// 	integrationtest.Register(serverDispatcher)
+// 	require.NoError(t, serverDispatcher.Start())
+// 	defer serverDispatcher.Stop()
+// 	inboundAddr := serverInbound.Addr()
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/yarpc"
-	"go.uber.org/yarpc/api/transport"
-	"go.uber.org/yarpc/encoding/raw"
-	"go.uber.org/yarpc/internal/integrationtest"
-	"go.uber.org/yarpc/transport/http"
-	"go.uber.org/yarpc/x/ratelimit"
-)
+// 	outboundAddr := fmt.Sprintf("http://%s/", inboundAddr)
+// 	clientTransport := http.NewTransport()
+// 	clientOutbound := clientTransport.NewSingleOutbound(outboundAddr)
+// 	clientDispatcher := yarpc.NewDispatcher(yarpc.Config{
+// 		Name: "client",
+// 		Outbounds: yarpc.Outbounds{
+// 			"service": transport.Outbounds{
+// 				Unary: clientOutbound,
+// 			},
+// 		},
+// 	})
+// 	require.NoError(t, clientDispatcher.Start())
+// 	defer clientDispatcher.Stop()
+// 	rawClient := raw.New(clientDispatcher.ClientConfig("service"))
 
-func TestRateLimiterMiddleware(t *testing.T) {
-	middleware, err := ratelimit.NewUnaryInboundMiddleware(1, ratelimit.WithoutSlack)
-	require.NoError(t, err)
-	serverTransport := http.NewTransport()
-	serverInbound := serverTransport.NewInbound("127.0.0.1:0")
-	serverDispatcher := yarpc.NewDispatcher(yarpc.Config{
-		Name:     "service",
-		Inbounds: yarpc.Inbounds{serverInbound},
-		InboundMiddleware: yarpc.InboundMiddleware{
-			Unary: middleware,
-		},
-	})
-	integrationtest.Register(serverDispatcher)
-	require.NoError(t, serverDispatcher.Start())
-	defer serverDispatcher.Stop()
-	inboundAddr := serverInbound.Addr()
+// 	assert.NoError(t, integrationtest.Call(context.Background(), rawClient))
+// 	err = integrationtest.Call(context.Background(), rawClient)
+// 	assert.Error(t, err, "rate limit exceeded")
+// 	assert.Contains(t, err.Error(), "rate limit exceeded")
+// }
 
-	outboundAddr := fmt.Sprintf("http://%s/", inboundAddr)
-	clientTransport := http.NewTransport()
-	clientOutbound := clientTransport.NewSingleOutbound(outboundAddr)
-	clientDispatcher := yarpc.NewDispatcher(yarpc.Config{
-		Name: "client",
-		Outbounds: yarpc.Outbounds{
-			"service": transport.Outbounds{
-				Unary: clientOutbound,
-			},
-		},
-	})
-	require.NoError(t, clientDispatcher.Start())
-	defer clientDispatcher.Stop()
-	rawClient := raw.New(clientDispatcher.ClientConfig("service"))
-
-	assert.NoError(t, integrationtest.Call(context.Background(), rawClient))
-	err = integrationtest.Call(context.Background(), rawClient)
-	assert.Error(t, err, "rate limit exceeded")
-	assert.Contains(t, err.Error(), "rate limit exceeded")
-}
-
-func TestInvalidRateLimiterMiddleware(t *testing.T) {
-	_, err := ratelimit.NewUnaryInboundMiddleware(-1)
-	assert.Error(t, err)
-}
+// func TestInvalidRateLimiterMiddleware(t *testing.T) {
+// 	_, err := ratelimit.NewUnaryInboundMiddleware(-1)
+// 	assert.Error(t, err)
+// }
