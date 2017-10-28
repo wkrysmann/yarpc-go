@@ -49,8 +49,13 @@ type InboundThrottleConfig struct {
 	// indefinitely.
 	NoSlack bool `config:"noSlack"`
 
+	// TODO(apeatsbond): can maybe consolidate service/procedure?
+	// Service name to throttle
+	Service string `config:"service"`
 	// Procedure name to throttle
 	Procedure string `config:"procedure"`
+	// Caller name to throttle
+	Caller string `config:"caller"`
 
 	// TODO(apeatsbond): change config format so the below can be explicitly set elsewhere
 	// GlobalThrottle indicates if this limiter configuration is for the global rate
@@ -59,9 +64,6 @@ type InboundThrottleConfig struct {
 	//  procedures
 	DefaultThrottle bool `config:"default"`
 }
-
-// Params defines dependencies for a new Unary Inbound Middleware
-type Params struct{ Config config.Provider }
 
 // Build creates a unary inbound rate limit middleware, or returns an error if
 // the configuration is invalid.
@@ -82,23 +84,24 @@ func (c InboundThrottleConfig) Build() (*Throttle, error) {
 	return NewThrottle(c.RPS, opts...)
 }
 
-func New(p Params) (*UnaryInboundMiddleware, error) {
+// New creates a rate limiter in a unary inbound middleware
+func New(config config.Provider) (*UnaryInboundMiddleware, error) {
 	// TODO(apeatsbond): report name/version, similar to retryfx
 
 	var cfg ratelmiterConfig
-	if err := p.Config.Get(ConfigurationKey).Populate(&cfg); err != nil {
+	if err := config.Get(ConfigurationKey).Populate(&cfg); err != nil {
 		return nil, err
 	}
 
-	return CreateMiddlewareFromConfig(cfg)
+	return NewUnaryMiddlewareFromConfig(cfg)
 }
 
-func CreateMiddlewareFromConfig(cfg ratelmiterConfig) (*UnaryInboundMiddleware, error) {
+func NewUnaryMiddlewareFromConfig(cfg ratelmiterConfig) (*UnaryInboundMiddleware, error) {
 	var (
 		globalThrottle  *Throttle
 		defaultThrottle *Throttle
 	)
-	throttles := make([]*Throttle, 0, len(cfg))
+	throttles := make([]*inboundThrottle, 0, len(cfg))
 
 	// iterate over limiter configurations and create them
 	for _, tCfg := range cfg {
@@ -120,7 +123,11 @@ func CreateMiddlewareFromConfig(cfg ratelmiterConfig) (*UnaryInboundMiddleware, 
 		} else if tCfg.GlobalThrottle {
 			globalThrottle = t
 		} else {
-			throttles = append(throttles, t)
+			throttles = append(throttles, &inboundThrottle{
+				throttle: t,
+				service:  tCfg.Service,
+				caller:   tCfg.Caller,
+			})
 		}
 	}
 

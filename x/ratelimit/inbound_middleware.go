@@ -33,7 +33,7 @@ var errRateLimitExceeded = yarpcerrors.Newf(yarpcerrors.CodeResourceExhausted, "
 var _ middleware.UnaryInbound = (*UnaryInboundMiddleware)(nil)
 
 type UnaryInboundMiddleware struct {
-	throttles       []*Throttle
+	throttles       []*inboundThrottle
 	defaultThrottle *Throttle
 	globalThrottle  *Throttle
 }
@@ -44,6 +44,8 @@ func (m *UnaryInboundMiddleware) Handle(ctx context.Context, req *transport.Requ
 	t := m.applicableThrottler(req)
 
 	if t.Throttle() {
+		// intenionally ignore global throttle result since the local throttle has
+		// already told us to throttle.
 		_ = m.globalThrottle.Throttle()
 		return errRateLimitExceeded
 
@@ -57,16 +59,10 @@ func (m *UnaryInboundMiddleware) Handle(ctx context.Context, req *transport.Requ
 func (m *UnaryInboundMiddleware) applicableThrottler(req *transport.Request) *Throttle {
 	// walk until we find an applicable throttle for this specific request
 	for _, t := range m.throttles {
-		if couldHandleRequest(t, req) {
-			return t
+		if t.AppliesToRequest(req) {
+			return t.throttle
 		}
 	}
 	// return default if none apply
 	return m.defaultThrottle
-}
-
-func couldHandleRequest(t *Throttle, req *transport.Request) bool {
-	// TODO(apeatsbond): choose based on service name, caller, procedure whatever
-	// TODO(apeatsbond): this should likely be part of a wrapper around throttle
-	return true
 }

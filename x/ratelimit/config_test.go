@@ -25,6 +25,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/yarpc/internal/whitespace"
+
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -80,7 +81,7 @@ import (
 
 func TestConfiguration(t *testing.T) {
 	ratelimitConfig := whitespace.Expand(`
-  ratelimit:
+	ratelimit:
 	- rps: 10
 		procedure: Hello::foo
 	- rps: 500
@@ -103,5 +104,4 @@ func TestConfiguration(t *testing.T) {
 	err := yaml.Unmarshal([]byte(ratelimitConfig), &cfg)
 	require.NoError(t, err)
 	t.Fatal(cfg)
-	// p := Params{Config: cfg}
 }
