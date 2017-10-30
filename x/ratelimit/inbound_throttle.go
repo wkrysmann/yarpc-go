@@ -22,22 +22,29 @@ package ratelimit
 
 import "go.uber.org/yarpc/api/transport"
 
-// TODO(apeatsbond): change to
-// - request throttle?
-// - specificThrottle
-// - constrained throttle..
-// - service throttle?
+// RequestThrottler is a transport.Request-aware throttler
+type RequestThrottler interface {
+	Throttler
+
+	// AppliesToRequest indicates if the throttler can be responsible for
+	// throttling the given request, based on aspects of the request (eg caller,
+	// procedure)
+	AppliesToRequest(*transport.Request) bool
+}
+
+var _ RequestThrottler = (*inboundThrottle)(nil)
+
 // TODO(apeatsbond): maybe have separate throttlers per thing we're throttling with??
 type inboundThrottle struct {
 	throttle *Throttle
 
-	//
+	// TODO(apeatsbond): maybe change
 	service   string
 	procedure string
 	caller    string
 }
 
-// Throttle the request
+// Throttle indicates if a call should be dropped
 func (t *inboundThrottle) Throttle() bool {
 	return t.throttle.Throttle()
 }
@@ -45,6 +52,7 @@ func (t *inboundThrottle) Throttle() bool {
 // AppliesToRequest determines if this throttle can be responsible for
 // throttling the given request
 func (t *inboundThrottle) AppliesToRequest(req *transport.Request) bool {
+	// TODO(apeatsbond): add precedence order in above comment^
 	// TODO(apeatsbond): choose based on service name, caller, procedure whatever
 	return true
 }

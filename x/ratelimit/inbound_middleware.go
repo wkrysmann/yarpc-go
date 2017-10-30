@@ -28,21 +28,27 @@ import (
 	"go.uber.org/yarpc/yarpcerrors"
 )
 
-var errRateLimitExceeded = yarpcerrors.Newf(yarpcerrors.CodeResourceExhausted, "rate limit exceeded")
+var (
+	errRateLimitExceeded = yarpcerrors.Newf(yarpcerrors.CodeResourceExhausted, "rate limit exceeded")
 
-var _ middleware.UnaryInbound = (*UnaryInboundMiddleware)(nil)
+	_ middleware.UnaryInbound = (*UnaryInboundMiddleware)(nil)
+)
 
+// UnaryInboundMiddleware is the middleware that determines which requests get
+// dropped
 type UnaryInboundMiddleware struct {
-	throttles       []*inboundThrottle
-	defaultThrottle *Throttle
-	globalThrottle  *Throttle
+	throttles       []RequestThrottler
+	defaultThrottle Throttler
+	globalThrottle  Throttler
 }
 
-// Handle drops inbound requests with a ResourceExhaustedError if the arrive
-// more frequently than the configured rate limit.
+// Handle drops inbound requests with a ResourceExhaustedError code if the
+// arrive more frequently than the configured rate limit.
 func (m *UnaryInboundMiddleware) Handle(ctx context.Context, req *transport.Request, resw transport.ResponseWriter, next transport.UnaryHandler) error {
 	t := m.applicableThrottler(req)
 
+	// We use a 'local' throttle eager ORed with the global throttle to determine
+	// if the request should be dropped
 	if t.Throttle() {
 		// intenionally ignore global throttle result since the local throttle has
 		// already told us to throttle.
@@ -56,13 +62,15 @@ func (m *UnaryInboundMiddleware) Handle(ctx context.Context, req *transport.Requ
 	return next.Handle(ctx, req, resw)
 }
 
-func (m *UnaryInboundMiddleware) applicableThrottler(req *transport.Request) *Throttle {
-	// walk until we find an applicable throttle for this specific request
+// applicableThrottler 'walks' the ordered RequestThrottle slice until it finds
+// a throttle that applies to the given request.
+func (m *UnaryInboundMiddleware) applicableThrottler(req *transport.Request) Throttler {
 	for _, t := range m.throttles {
 		if t.AppliesToRequest(req) {
-			return t.throttle
+			return t
 		}
 	}
 	// return default if none apply
 	return m.defaultThrottle
+	// TODO(apeatsbond): or maybe an always closed/opened one
 }

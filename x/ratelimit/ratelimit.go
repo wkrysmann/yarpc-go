@@ -31,6 +31,11 @@ import (
 // Note: This file is inspired by:
 // https://github.com/prashantv/go-bench/blob/master/ratelimit
 
+// Throttler indicates if something should be throttled
+type Throttler interface {
+	Throttle() bool
+}
+
 // Clock is the minimum necessary interface to instantiate a throttle with a
 // clock or fake clock, compatible with clocks created using
 // github.com/andres-erbsen/clock or go.uber.org/yarpc/internal/clock.

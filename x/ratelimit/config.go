@@ -96,12 +96,14 @@ func New(config config.Provider) (*UnaryInboundMiddleware, error) {
 	return NewUnaryMiddlewareFromConfig(cfg)
 }
 
+// NewUnaryMiddlewareFromConfig creates a new unary inbound middleware with
+// ratelimiting capabilities
 func NewUnaryMiddlewareFromConfig(cfg ratelmiterConfig) (*UnaryInboundMiddleware, error) {
 	var (
-		globalThrottle  *Throttle
-		defaultThrottle *Throttle
+		globalThrottle  Throttler
+		defaultThrottle Throttler
 	)
-	throttles := make([]*inboundThrottle, 0, len(cfg))
+	throttles := make([]RequestThrottler, 0, len(cfg))
 
 	// iterate over limiter configurations and create them
 	for _, tCfg := range cfg {
